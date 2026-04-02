@@ -2,348 +2,728 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>💩 Kack-Karte Deutschland</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; display: flex; height: 100vh; background: #1a1a2e; color: #eee; }
 
-        #sidebar {
-            width: 350px; background: #16213e; padding: 20px; overflow-y: auto;
-            display: flex; flex-direction: column; gap: 15px;
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #fff;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
         }
-        h1 { font-size: 22px; text-align: center; color: #e94560; }
 
-        #search-box {
-            display: flex; gap: 8px;
+        /* === HEADER === */
+        .header {
+            background: linear-gradient(135deg, #16213e, #0f3460);
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 1000;
+            position: relative;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
-        #search-box input {
-            flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #444;
-            background: #0f3460; color: #fff; font-size: 14px;
+        .header h1 {
+            font-size: 18px;
+            white-space: nowrap;
         }
-        #search-box button {
-            padding: 10px 16px; border-radius: 8px; border: none;
-            background: #e94560; color: #fff; cursor: pointer; font-size: 14px; font-weight: bold;
+        .header-buttons {
+            display: flex;
+            gap: 6px;
         }
-        #search-box button:hover { background: #c73651; }
+        .header-buttons button {
+            background: rgba(255,255,255,0.15);
+            border: none;
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .header-buttons button:hover { background: rgba(255,255,255,0.25); }
 
-        .stats {
-            background: #0f3460; padding: 12px; border-radius: 10px; text-align: center;
+        /* === SEARCH BAR === */
+        .search-bar {
+            display: flex;
+            padding: 8px 12px;
+            background: #16213e;
+            gap: 8px;
+            z-index: 999;
+            position: relative;
+        }
+        .search-bar input {
+            flex: 1;
+            padding: 10px 14px;
+            border-radius: 25px;
+            border: 2px solid #0f3460;
+            background: #1a1a2e;
+            color: white;
+            font-size: 16px;
+            outline: none;
+        }
+        .search-bar input:focus { border-color: #e94560; }
+        .search-bar input::placeholder { color: #666; }
+        .search-bar button {
+            padding: 10px 18px;
+            border-radius: 25px;
+            border: none;
+            background: #e94560;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        /* === MAP === */
+        #map {
+            width: 100%;
+            flex: 1;
+        }
+
+        /* === MAIN LAYOUT === */
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 0px);
+            height: calc(100dvh - 0px);
+        }
+
+        /* === BOTTOM SHEET (Mobile) === */
+        .bottom-sheet {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #16213e;
+            border-radius: 20px 20px 0 0;
+            z-index: 1001;
+            transform: translateY(calc(100% - 50px));
+            transition: transform 0.3s ease;
+            max-height: 70vh;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.4);
+        }
+        .bottom-sheet.open {
+            transform: translateY(0);
+        }
+        .bottom-sheet-handle {
+            width: 40px;
+            height: 5px;
+            background: #555;
+            border-radius: 3px;
+            margin: 10px auto;
+            cursor: pointer;
+        }
+        .bottom-sheet-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px 10px;
+            cursor: pointer;
+        }
+        .bottom-sheet-header h2 {
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .entry-count {
+            background: #e94560;
+            color: white;
+            border-radius: 12px;
+            padding: 2px 10px;
+            font-size: 13px;
+        }
+        .bottom-sheet-content {
+            overflow-y: auto;
+            max-height: calc(70vh - 60px);
+            padding: 0 12px 20px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* === ENTRY CARDS === */
+        .entry-card {
+            background: #1a1a2e;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            position: relative;
+        }
+        .entry-icon {
+            font-size: 28px;
+            flex-shrink: 0;
+        }
+        .entry-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .entry-name {
+            font-weight: bold;
+            font-size: 15px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .entry-rating {
+            font-size: 13px;
+            margin-top: 2px;
+        }
+        .entry-comment {
+            font-size: 12px;
+            color: #aaa;
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .entry-delete {
+            background: rgba(233,69,96,0.2);
+            border: none;
+            color: #e94560;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            font-size: 16px;
+            cursor: pointer;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .entry-locate {
+            background: rgba(100,200,255,0.2);
+            border: none;
+            color: #64c8ff;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            font-size: 14px;
+            cursor: pointer;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .no-entries {
+            text-align: center;
+            padding: 30px;
+            color: #666;
             font-size: 14px;
         }
-        .stats span { color: #e94560; font-weight: bold; font-size: 18px; }
 
-        #entry-list { display: flex; flex-direction: column; gap: 8px; flex: 1; overflow-y: auto; }
-
-        .entry-card {
-            background: #0f3460; padding: 12px; border-radius: 10px;
-            display: flex; justify-content: space-between; align-items: center;
+        /* === MODAL (Add Entry) === */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 2000;
+            justify-content: center;
+            align-items: flex-end;
         }
-        .entry-card .info { flex: 1; }
-        .entry-card .name { font-weight: bold; font-size: 14px; }
-        .entry-card .comment { font-size: 12px; color: #aaa; margin-top: 4px; }
-        .entry-card .rating { font-size: 16px; margin-top: 4px; }
-        .entry-card .delete-btn {
-            background: #e94560; border: none; color: #fff; width: 28px; height: 28px;
-            border-radius: 50%; cursor: pointer; font-size: 16px; flex-shrink: 0;
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: #16213e;
+            width: 100%;
+            max-width: 500px;
+            border-radius: 20px 20px 0 0;
+            padding: 20px;
+            animation: slideUp 0.3s ease;
         }
-        .entry-card .delete-btn:hover { background: #c73651; }
-
-        .export-buttons { display: flex; gap: 8px; }
-        .export-buttons button {
-            flex: 1; padding: 8px; border-radius: 8px; border: none;
-            background: #533483; color: #fff; cursor: pointer; font-size: 12px;
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
         }
-        .export-buttons button:hover { background: #6a42a0; }
-
-        #map { flex: 1; z-index: 1; }
-
-        /* Popup Form */
-        .popup-form { min-width: 220px; }
-        .popup-form h3 { margin-bottom: 10px; font-size: 16px; color: #333; }
-        .popup-form label { font-size: 13px; color: #555; display: block; margin-top: 8px; }
-        .popup-form .poop-rating { font-size: 24px; cursor: pointer; margin: 5px 0; }
-        .popup-form .poop-rating span { opacity: 0.3; transition: opacity 0.2s; }
-        .popup-form .poop-rating span.active { opacity: 1; }
-        .popup-form .poop-rating span:hover { opacity: 0.8; }
-        .popup-form textarea {
-            width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 5px;
-            font-size: 13px; resize: vertical; margin-top: 4px;
+        .modal h3 {
+            font-size: 18px;
+            margin-bottom: 16px;
+            text-align: center;
         }
-        .popup-form .save-btn {
-            margin-top: 10px; width: 100%; padding: 8px; background: #e94560;
-            color: #fff; border: none; border-radius: 6px; cursor: pointer;
-            font-size: 14px; font-weight: bold;
+        .modal label {
+            display: block;
+            font-size: 14px;
+            color: #aaa;
+            margin-bottom: 4px;
+            margin-top: 12px;
         }
-        .popup-form .save-btn:hover { background: #c73651; }
-
-        .hint { font-size: 12px; color: #888; text-align: center; font-style: italic; }
-
-        @media (max-width: 700px) {
-            body { flex-direction: column; }
-            #sidebar { width: 100%; height: 40%; }
-            #map { height: 60%; }
+        .modal input, .modal textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 2px solid #0f3460;
+            background: #1a1a2e;
+            color: white;
+            font-size: 16px;
+            outline: none;
         }
+        .modal textarea {
+            height: 70px;
+            resize: none;
+            font-family: inherit;
+        }
+        .modal input:focus, .modal textarea:focus { border-color: #e94560; }
+
+        .rating-select {
+            display: flex;
+            gap: 8px;
+            margin-top: 6px;
+        }
+        .rating-btn {
+            flex: 1;
+            padding: 10px;
+            border-radius: 10px;
+            border: 2px solid #0f3460;
+            background: #1a1a2e;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            text-align: center;
+        }
+        .rating-btn.selected {
+            border-color: #e94560;
+            background: rgba(233,69,96,0.2);
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .modal-buttons button {
+            flex: 1;
+            padding: 14px;
+            border-radius: 12px;
+            border: none;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .btn-cancel {
+            background: #333;
+            color: #aaa;
+        }
+        .btn-save {
+            background: #e94560;
+            color: white;
+        }
+
+        /* === STATS BAR === */
+        .stats-bar {
+            display: flex;
+            justify-content: space-around;
+            padding: 6px 12px;
+            background: rgba(15,52,96,0.5);
+            font-size: 12px;
+            color: #aaa;
+        }
+        .stat-item { text-align: center; }
+        .stat-value { font-size: 18px; font-weight: bold; color: #fff; }
+
+        /* === LEAFLET CUSTOM === */
+        .poop-marker {
+            font-size: 30px;
+            line-height: 1;
+            text-align: center;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+        }
+        .leaflet-popup-content-wrapper {
+            background: #16213e !important;
+            color: white !important;
+            border-radius: 12px !important;
+        }
+        .leaflet-popup-tip { background: #16213e !important; }
+        .leaflet-popup-content { font-size: 14px; }
+
+        /* === Export/Import Modal === */
+        .export-import-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 3000;
+            justify-content: center;
+            align-items: center;
+        }
+        .export-import-modal.active { display: flex; }
+        .ei-content {
+            background: #16213e;
+            border-radius: 16px;
+            padding: 20px;
+            width: 90%;
+            max-width: 400px;
+        }
+        .ei-content h3 { margin-bottom: 16px; text-align: center; }
+        .ei-btn {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            border: none;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .ei-btn.export { background: #0f3460; color: white; }
+        .ei-btn.import { background: #0f3460; color: white; }
+        .ei-btn.close { background: #333; color: #aaa; }
     </style>
 </head>
 <body>
+    <div class="main-container">
+        <!-- Header -->
+        <div class="header">
+            <h1>💩 Kack-Karte</h1>
+            <div class="header-buttons">
+                <button onclick="locateMe()" title="Mein Standort">📍</button>
+                <button onclick="showExportImport()" title="Export/Import">💾</button>
+            </div>
+        </div>
 
-<div id="sidebar">
-    <h1>💩 Kack-Karte</h1>
+        <!-- Search -->
+        <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="Stadt suchen..." 
+                   onkeypress="if(event.key==='Enter')searchCity()">
+            <button onclick="searchCity()">Suchen</button>
+        </div>
 
-    <div id="search-box">
-        <input type="text" id="search-input" placeholder="Ort suchen..." 
-               onkeydown="if(event.key==='Enter') searchCity()">
-        <button onclick="searchCity()">🔍</button>
+        <!-- Stats -->
+        <div class="stats-bar">
+            <div class="stat-item">
+                <div class="stat-value" id="totalCount">0</div>
+                <div>Einträge</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="avgRating">-</div>
+                <div>Ø Bewertung</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="topCity">-</div>
+                <div>Meiste 💩</div>
+            </div>
+        </div>
+
+        <!-- Map -->
+        <div id="map"></div>
+
+        <!-- Bottom Sheet -->
+        <div class="bottom-sheet" id="bottomSheet">
+            <div class="bottom-sheet-handle" onclick="toggleSheet()"></div>
+            <div class="bottom-sheet-header" onclick="toggleSheet()">
+                <h2>📋 Einträge <span class="entry-count" id="entryCount">0</span></h2>
+                <span id="sheetArrow">▲</span>
+            </div>
+            <div class="bottom-sheet-content" id="entryList">
+                <div class="no-entries">Noch keine Einträge. Tippe auf die Karte! 💩</div>
+            </div>
+        </div>
     </div>
 
-    <p class="hint">Klick auf die Karte oder suche einen Ort</p>
+    <!-- Add Entry Modal -->
+    <div class="modal-overlay" id="addModal">
+        <div class="modal">
+            <h3>💩 Neuer Eintrag</h3>
+            <div id="modalLocation" style="text-align:center;color:#aaa;font-size:13px;margin-bottom:8px;"></div>
 
-    <div class="stats">
-        Einträge: <span id="count">0</span> | Ø Bewertung: <span id="avg">-</span> 💩
+            <label>Ortsname</label>
+            <input type="text" id="entryName" placeholder="z.B. Autobahnraststätte A3">
+
+            <label>Bewertung</label>
+            <div class="rating-select" id="ratingSelect">
+                <div class="rating-btn" onclick="setRating(1)" data-r="1">💩</div>
+                <div class="rating-btn" onclick="setRating(2)" data-r="2">💩💩</div>
+                <div class="rating-btn selected" onclick="setRating(3)" data-r="3">💩💩💩</div>
+                <div class="rating-btn" onclick="setRating(4)" data-r="4">4💩</div>
+                <div class="rating-btn" onclick="setRating(5)" data-r="5">5💩</div>
+            </div>
+
+            <label>Kommentar (optional)</label>
+            <textarea id="entryComment" placeholder="Wie war's?"></textarea>
+
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeModal()">Abbrechen</button>
+                <button class="btn-save" onclick="saveEntry()">💩 Speichern</button>
+            </div>
+        </div>
     </div>
 
-    <div id="entry-list"></div>
-
-    <div class="export-buttons">
-        <button onclick="exportData()">📥 Export</button>
-        <button onclick="importData()">📤 Import</button>
+    <!-- Export/Import Modal -->
+    <div class="export-import-modal" id="eiModal">
+        <div class="ei-content">
+            <h3>💾 Daten verwalten</h3>
+            <button class="ei-btn export" onclick="exportData()">📤 Exportieren (JSON)</button>
+            <button class="ei-btn import" onclick="document.getElementById('importFile').click()">📥 Importieren (JSON)</button>
+            <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+            <button class="ei-btn close" onclick="closeExportImport()">Schließen</button>
+        </div>
     </div>
-</div>
 
-<div id="map"></div>
+    <script>
+        // === DATA ===
+        let entries = JSON.parse(localStorage.getItem('kackkarte_entries') || '[]');
+        let currentRating = 3;
+        let pendingLatLng = null;
+        let markers = [];
 
-<script>
-// Karte initialisieren - Zentrum auf Deutschland
-var map = L.map('map').setView([51.1657, 10.4515], 6);
+        // === MAP INIT ===
+        const map = L.map('map', {
+            zoomControl: false
+        }).setView([51.1657, 10.4515], 6);
 
-// Kartenlayer laden
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap',
-    maxZoom: 18
-}).addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap',
+            maxZoom: 19
+        }).addTo(map);
 
-// Eigenes Poop-Icon
-var poopIcon = L.divIcon({
-    html: '<div style="font-size:30px;text-align:center;line-height:1;">💩</div>',
-    iconSize: [35, 35],
-    iconAnchor: [17, 35],
-    popupAnchor: [0, -35],
-    className: ''
-});
+        L.control.zoom({ position: 'topright' }).addTo(map);
 
-// Daten aus localStorage laden
-var entries = JSON.parse(localStorage.getItem('kackkarte_entries') || '[]');
-var markers = [];
+        // Fix map size after load
+        setTimeout(() => { map.invalidateSize(); }, 300);
+        window.addEventListener('resize', () => { map.invalidateSize(); });
 
-// Alle gespeicherten Einträge auf die Karte setzen
-function loadMarkers() {
-    markers.forEach(function(m) { map.removeLayer(m); });
-    markers = [];
-    entries.forEach(function(entry, index) {
-        var marker = L.marker([entry.lat, entry.lng], {icon: poopIcon}).addTo(map);
-        var poop = '';
-        for (var i = 0; i < entry.rating; i++) poop += '💩';
-        marker.bindPopup(
-            '<b>' + entry.name + '</b><br>' +
-            poop + '<br>' +
-            (entry.comment ? '<i>' + entry.comment + '</i><br>' : '') +
-            '<small>' + entry.date + '</small>'
-        );
-        markers.push(marker);
-    });
-    updateStats();
-    renderList();
-}
+        // === MAP CLICK ===
+        map.on('click', function(e) {
+            pendingLatLng = e.latlng;
+            document.getElementById('modalLocation').textContent = 
+                `📍 ${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`;
+            document.getElementById('entryName').value = '';
+            document.getElementById('entryComment').value = '';
+            setRating(3);
+            document.getElementById('addModal').classList.add('active');
 
-// Statistiken aktualisieren
-function updateStats() {
-    document.getElementById('count').textContent = entries.length;
-    if (entries.length > 0) {
-        var sum = entries.reduce(function(a, b) { return a + b.rating; }, 0);
-        document.getElementById('avg').textContent = (sum / entries.length).toFixed(1);
-    } else {
-        document.getElementById('avg').textContent = '-';
-    }
-}
-
-// Seitenleiste rendern
-function renderList() {
-    var list = document.getElementById('entry-list');
-    list.innerHTML = '';
-    entries.forEach(function(entry, index) {
-        var poop = '';
-        for (var i = 0; i < entry.rating; i++) poop += '💩';
-        var card = document.createElement('div');
-        card.className = 'entry-card';
-        card.innerHTML =
-            '<div class="info">' +
-                '<div class="name">' + entry.name + '</div>' +
-                '<div class="rating">' + poop + '</div>' +
-                (entry.comment ? '<div class="comment">' + entry.comment + '</div>' : '') +
-            '</div>' +
-            '<button class="delete-btn" onclick="deleteEntry(' + index + ')">✕</button>';
-        card.querySelector('.info').style.cursor = 'pointer';
-        card.querySelector('.info').onclick = function() {
-            map.setView([entry.lat, entry.lng], 13);
-            markers[index].openPopup();
-        };
-        list.appendChild(card);
-    });
-}
-
-// Speichern
-function saveEntries() {
-    localStorage.setItem('kackkarte_entries', JSON.stringify(entries));
-}
-
-// Eintrag löschen
-function deleteEntry(index) {
-    entries.splice(index, 1);
-    saveEntries();
-    loadMarkers();
-}
-
-// Popup-Formular erzeugen
-function createFormPopup(lat, lng, name) {
-    var formHtml =
-        '<div class="popup-form">' +
-            '<h3>📍 ' + name + '</h3>' +
-            '<label>Bewertung:</label>' +
-            '<div class="poop-rating" id="poop-rating">' +
-                '<span onclick="setRating(1)">💩</span>' +
-                '<span onclick="setRating(2)">💩</span>' +
-                '<span onclick="setRating(3)">💩</span>' +
-                '<span onclick="setRating(4)">💩</span>' +
-                '<span onclick="setRating(5)">💩</span>' +
-            '</div>' +
-            '<label>Kommentar:</label>' +
-            '<textarea id="popup-comment" rows="2" placeholder="Wie wars?"></textarea>' +
-            '<button class="save-btn" onclick="saveNewEntry()">💾 Speichern</button>' +
-        '</div>';
-
-    window._pendingEntry = { lat: lat, lng: lng, name: name, rating: 3 };
-
-    var popup = L.popup({ maxWidth: 300, closeOnClick: false })
-        .setLatLng([lat, lng])
-        .setContent(formHtml)
-        .openOn(map);
-
-    setTimeout(function() { setRating(3); }, 100);
-}
-
-var currentRating = 3;
-function setRating(r) {
-    currentRating = r;
-    if (window._pendingEntry) window._pendingEntry.rating = r;
-    var spans = document.querySelectorAll('#poop-rating span');
-    spans.forEach(function(s, i) {
-        s.className = i < r ? 'active' : '';
-    });
-}
-
-// Neuen Eintrag speichern
-function saveNewEntry() {
-    var comment = document.getElementById('popup-comment').value;
-    var entry = {
-        lat: window._pendingEntry.lat,
-        lng: window._pendingEntry.lng,
-        name: window._pendingEntry.name,
-        rating: currentRating,
-        comment: comment,
-        date: new Date().toLocaleDateString('de-DE')
-    };
-    entries.push(entry);
-    saveEntries();
-    map.closePopup();
-    loadMarkers();
-}
-
-// Klick auf die Karte
-map.on('click', function(e) {
-    var lat = e.latlng.lat;
-    var lng = e.latlng.lng;
-
-    // Reverse Geocoding für den Ortsnamen
-    fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng + '&zoom=10&addressdetails=1')
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            var name = 'Unbekannt';
-            if (data.address) {
-                name = data.address.city || data.address.town || data.address.village || data.address.municipality || data.address.state || 'Unbekannt';
-            }
-            createFormPopup(lat, lng, name);
-        })
-        .catch(function() {
-            createFormPopup(lat, lng, 'Unbekannter Ort');
+            // Reverse Geocoding
+            fetch(`https://nominatim.openstreetmap.org/reverse?lat=${e.latlng.lat}&lon=${e.latlng.lng}&format=json&zoom=10`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.address) {
+                        const city = data.address.city || data.address.town || data.address.village || data.address.municipality || '';
+                        document.getElementById('entryName').value = city;
+                        document.getElementById('modalLocation').textContent = `📍 ${city || data.display_name}`;
+                    }
+                }).catch(() => {});
         });
-});
 
-// Stadt suchen
-function searchCity() {
-    var query = document.getElementById('search-input').value.trim();
-    if (!query) return;
+        // === FUNCTIONS ===
+        function setRating(r) {
+            currentRating = r;
+            document.querySelectorAll('.rating-btn').forEach(b => {
+                b.classList.toggle('selected', parseInt(b.dataset.r) === r);
+            });
+        }
 
-    fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(query) + '&countrycodes=de&limit=1')
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (data.length > 0) {
-                var lat = parseFloat(data[0].lat);
-                var lng = parseFloat(data[0].lon);
-                var name = data[0].display_name.split(',')[0];
-                map.setView([lat, lng], 13);
-                createFormPopup(lat, lng, name);
+        function closeModal() {
+            document.getElementById('addModal').classList.remove('active');
+            pendingLatLng = null;
+        }
+
+        function saveEntry() {
+            if (!pendingLatLng) return;
+            const entry = {
+                id: Date.now(),
+                lat: pendingLatLng.lat,
+                lng: pendingLatLng.lng,
+                name: document.getElementById('entryName').value || 'Unbekannt',
+                rating: currentRating,
+                comment: document.getElementById('entryComment').value,
+                date: new Date().toLocaleDateString('de-DE')
+            };
+            entries.push(entry);
+            saveData();
+            addMarker(entry);
+            closeModal();
+            updateUI();
+            // Close bottom sheet so user sees the marker
+            document.getElementById('bottomSheet').classList.remove('open');
+        }
+
+        function addMarker(entry) {
+            const icon = L.divIcon({
+                className: 'poop-marker',
+                html: '💩',
+                iconSize: [30, 30],
+                iconAnchor: [15, 15]
+            });
+            const marker = L.marker([entry.lat, entry.lng], { icon: icon }).addTo(map);
+            const poops = '💩'.repeat(entry.rating);
+            marker.bindPopup(`
+                <strong>${entry.name}</strong><br>
+                ${poops}<br>
+                ${entry.comment ? '<em>' + entry.comment + '</em><br>' : ''}
+                <small>${entry.date}</small>
+            `);
+            markers.push({ id: entry.id, marker: marker });
+        }
+
+        function deleteEntry(id) {
+            entries = entries.filter(e => e.id !== id);
+            const m = markers.find(m => m.id === id);
+            if (m) { map.removeLayer(m.marker); markers = markers.filter(m => m.id !== id); }
+            saveData();
+            updateUI();
+        }
+
+        function locateEntry(id) {
+            const entry = entries.find(e => e.id === id);
+            if (entry) {
+                map.setView([entry.lat, entry.lng], 13);
+                const m = markers.find(m => m.id === id);
+                if (m) m.marker.openPopup();
+                document.getElementById('bottomSheet').classList.remove('open');
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem('kackkarte_entries', JSON.stringify(entries));
+        }
+
+        function updateUI() {
+            // Stats
+            document.getElementById('totalCount').textContent = entries.length;
+            document.getElementById('entryCount').textContent = entries.length;
+
+            if (entries.length > 0) {
+                const avg = entries.reduce((s, e) => s + e.rating, 0) / entries.length;
+                document.getElementById('avgRating').textContent = avg.toFixed(1) + '💩';
+
+                // Find city with most entries
+                const counts = {};
+                entries.forEach(e => { counts[e.name] = (counts[e.name] || 0) + 1; });
+                const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+                document.getElementById('topCity').textContent = top[0].length > 10 ? top[0].slice(0, 9) + '…' : top[0];
             } else {
-                alert('Ort nicht gefunden! Versuch es mit einem anderen Namen.');
+                document.getElementById('avgRating').textContent = '-';
+                document.getElementById('topCity').textContent = '-';
             }
-        })
-        .catch(function() {
-            alert('Suche fehlgeschlagen. Bitte prüfe deine Internetverbindung.');
-        });
 
-    document.getElementById('search-input').value = '';
-}
-
-// Export
-function exportData() {
-    var blob = new Blob([JSON.stringify(entries, null, 2)], {type: 'application/json'});
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'kackkarte_backup.json';
-    a.click();
-}
-
-// Import
-function importData() {
-    var input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = function(e) {
-        var reader = new FileReader();
-        reader.onload = function(ev) {
-            try {
-                var imported = JSON.parse(ev.target.result);
-                entries = entries.concat(imported);
-                saveEntries();
-                loadMarkers();
-                alert('✅ ' + imported.length + ' Einträge importiert!');
-            } catch(err) {
-                alert('❌ Fehler beim Import!');
+            // Entry List
+            const list = document.getElementById('entryList');
+            if (entries.length === 0) {
+                list.innerHTML = '<div class="no-entries">Noch keine Einträge. Tippe auf die Karte! 💩</div>';
+                return;
             }
-        };
-        reader.readAsText(e.target.files[0]);
-    };
-    input.click();
-}
+            list.innerHTML = entries.slice().reverse().map(e => `
+                <div class="entry-card">
+                    <div class="entry-icon">💩</div>
+                    <div class="entry-info">
+                        <div class="entry-name">${e.name}</div>
+                        <div class="entry-rating">${'💩'.repeat(e.rating)} · ${e.date}</div>
+                        ${e.comment ? `<div class="entry-comment">${e.comment}</div>` : ''}
+                    </div>
+                    <button class="entry-locate" onclick="locateEntry(${e.id})" title="Zeigen">🔍</button>
+                    <button class="entry-delete" onclick="deleteEntry(${e.id})" title="Löschen">✕</button>
+                </div>
+            `).join('');
+        }
 
-// Beim Start laden
-loadMarkers();
+        // === BOTTOM SHEET ===
+        function toggleSheet() {
+            document.getElementById('bottomSheet').classList.toggle('open');
+        }
 
-// Karte nach kurzer Verzögerung neu rendern (behebt Anzeigefehler)
-setTimeout(function() { map.invalidateSize(); }, 500);
-</script>
+        // Swipe handling for bottom sheet
+        let touchStartY = 0;
+        const sheet = document.getElementById('bottomSheet');
+        sheet.addEventListener('touchstart', (e) => {
+            touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+        sheet.addEventListener('touchend', (e) => {
+            const diff = e.changedTouches[0].clientY - touchStartY;
+            if (diff > 50) sheet.classList.remove('open');
+            if (diff < -50) sheet.classList.add('open');
+        }, { passive: true });
 
+        // === SEARCH ===
+        function searchCity() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (!query) return;
+            fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)},Deutschland&format=json&limit=1`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.length > 0) {
+                        const lat = parseFloat(data[0].lat);
+                        const lng = parseFloat(data[0].lon);
+                        map.setView([lat, lng], 13);
+                        pendingLatLng = { lat, lng };
+                        document.getElementById('modalLocation').textContent = `📍 ${data[0].display_name.split(',')[0]}`;
+                        document.getElementById('entryName').value = data[0].display_name.split(',')[0];
+                        document.getElementById('entryComment').value = '';
+                        setRating(3);
+                        document.getElementById('addModal').classList.add('active');
+                    } else {
+                        alert('Ort nicht gefunden 😕');
+                    }
+                }).catch(() => alert('Fehler bei der Suche'));
+        }
+
+        // === LOCATE ME ===
+        function locateMe() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(pos => {
+                    map.setView([pos.coords.latitude, pos.coords.longitude], 14);
+                }, () => alert('Standort konnte nicht ermittelt werden'));
+            } else {
+                alert('Geolocation wird nicht unterstützt');
+            }
+        }
+
+        // === EXPORT / IMPORT ===
+        function showExportImport() {
+            document.getElementById('eiModal').classList.add('active');
+        }
+        function closeExportImport() {
+            document.getElementById('eiModal').classList.remove('active');
+        }
+        function exportData() {
+            const blob = new Blob([JSON.stringify(entries, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'kackkarte_backup.json';
+            a.click();
+        }
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (Array.isArray(imported)) {
+                        entries = entries.concat(imported);
+                        saveData();
+                        markers.forEach(m => map.removeLayer(m.marker));
+                        markers = [];
+                        entries.forEach(addMarker);
+                        updateUI();
+                        closeExportImport();
+                        alert('Import erfolgreich! ' + imported.length + ' Einträge hinzugefügt.');
+                    }
+                } catch(err) {
+                    alert('Fehler beim Import');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // === INIT ===
+        entries.forEach(addMarker);
+        updateUI();
+    </script>
 </body>
 </html>
