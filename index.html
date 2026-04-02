@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💩 Kack-Karte Deutschland</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; display: flex; height: 100vh; background: #1a1a2e; color: #eee; }
+
+        #sidebar {
+            width: 350px; background: #16213e; padding: 20px; overflow-y: auto;
+            display: flex; flex-direction: column; gap: 15px;
+        }
+        h1 { font-size: 22px; text-align: center; color: #e94560; }
+
+        #search-box {
+            display: flex; gap: 8px;
+        }
+        #search-box input {
+            flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #444;
+            background: #0f3460; color: #fff; font-size: 14px;
+        }
+        #search-box button {
+            padding: 10px 16px; border-radius: 8px; border: none;
+            background: #e94560; color: #fff; cursor: pointer; font-size: 14px; font-weight: bold;
+        }
+        #search-box button:hover { background: #c73651; }
+
+        .stats {
+            background: #0f3460; padding: 12px; border-radius: 10px; text-align: center;
+            font-size: 14px;
+        }
+        .stats span { color: #e94560; font-weight: bold; font-size: 18px; }
+
+        #entry-list { display: flex; flex-direction: column; gap: 8px; flex: 1; overflow-y: auto; }
+
+        .entry-card {
+            background: #0f3460; padding: 12px; border-radius: 10px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .entry-card .info { flex: 1; }
+        .entry-card .name { font-weight: bold; font-size: 14px; }
+        .entry-card .comment { font-size: 12px; color: #aaa; margin-top: 4px; }
+        .entry-card .rating { font-size: 16px; margin-top: 4px; }
+        .entry-card .delete-btn {
+            background: #e94560; border: none; color: #fff; width: 28px; height: 28px;
+            border-radius: 50%; cursor: pointer; font-size: 16px; flex-shrink: 0;
+        }
+        .entry-card .delete-btn:hover { background: #c73651; }
+
+        .export-buttons { display: flex; gap: 8px; }
+        .export-buttons button {
+            flex: 1; padding: 8px; border-radius: 8px; border: none;
+            background: #533483; color: #fff; cursor: pointer; font-size: 12px;
+        }
+        .export-buttons button:hover { background: #6a42a0; }
+
+        #map { flex: 1; z-index: 1; }
+
+        /* Popup Form */
+        .popup-form { min-width: 220px; }
+        .popup-form h3 { margin-bottom: 10px; font-size: 16px; color: #333; }
+        .popup-form label { font-size: 13px; color: #555; display: block; margin-top: 8px; }
+        .popup-form .poop-rating { font-size: 24px; cursor: pointer; margin: 5px 0; }
+        .popup-form .poop-rating span { opacity: 0.3; transition: opacity 0.2s; }
+        .popup-form .poop-rating span.active { opacity: 1; }
+        .popup-form .poop-rating span:hover { opacity: 0.8; }
+        .popup-form textarea {
+            width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 5px;
+            font-size: 13px; resize: vertical; margin-top: 4px;
+        }
+        .popup-form .save-btn {
+            margin-top: 10px; width: 100%; padding: 8px; background: #e94560;
+            color: #fff; border: none; border-radius: 6px; cursor: pointer;
+            font-size: 14px; font-weight: bold;
+        }
+        .popup-form .save-btn:hover { background: #c73651; }
+
+        .hint { font-size: 12px; color: #888; text-align: center; font-style: italic; }
+
+        @media (max-width: 700px) {
+            body { flex-direction: column; }
+            #sidebar { width: 100%; height: 40%; }
+            #map { height: 60%; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <h1>💩 Kack-Karte</h1>
+
+    <div id="search-box">
+        <input type="text" id="search-input" placeholder="Ort suchen..." 
+               onkeydown="if(event.key==='Enter') searchCity()">
+        <button onclick="searchCity()">🔍</button>
+    </div>
+
+    <p class="hint">Klick auf die Karte oder suche einen Ort</p>
+
+    <div class="stats">
+        Einträge: <span id="count">0</span> | Ø Bewertung: <span id="avg">-</span> 💩
+    </div>
+
+    <div id="entry-list"></div>
+
+    <div class="export-buttons">
+        <button onclick="exportData()">📥 Export</button>
+        <button onclick="importData()">📤 Import</button>
+    </div>
+</div>
+
+<div id="map"></div>
+
+<script>
+// Karte initialisieren - Zentrum auf Deutschland
+var map = L.map('map').setView([51.1657, 10.4515], 6);
+
+// Kartenlayer laden
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap',
+    maxZoom: 18
+}).addTo(map);
+
+// Eigenes Poop-Icon
+var poopIcon = L.divIcon({
+    html: '<div style="font-size:30px;text-align:center;line-height:1;">💩</div>',
+    iconSize: [35, 35],
+    iconAnchor: [17, 35],
+    popupAnchor: [0, -35],
+    className: ''
+});
+
+// Daten aus localStorage laden
+var entries = JSON.parse(localStorage.getItem('kackkarte_entries') || '[]');
+var markers = [];
+
+// Alle gespeicherten Einträge auf die Karte setzen
+function loadMarkers() {
+    markers.forEach(function(m) { map.removeLayer(m); });
+    markers = [];
+    entries.forEach(function(entry, index) {
+        var marker = L.marker([entry.lat, entry.lng], {icon: poopIcon}).addTo(map);
+        var poop = '';
+        for (var i = 0; i < entry.rating; i++) poop += '💩';
+        marker.bindPopup(
+            '<b>' + entry.name + '</b><br>' +
+            poop + '<br>' +
+            (entry.comment ? '<i>' + entry.comment + '</i><br>' : '') +
+            '<small>' + entry.date + '</small>'
+        );
+        markers.push(marker);
+    });
+    updateStats();
+    renderList();
+}
+
+// Statistiken aktualisieren
+function updateStats() {
+    document.getElementById('count').textContent = entries.length;
+    if (entries.length > 0) {
+        var sum = entries.reduce(function(a, b) { return a + b.rating; }, 0);
+        document.getElementById('avg').textContent = (sum / entries.length).toFixed(1);
+    } else {
+        document.getElementById('avg').textContent = '-';
+    }
+}
+
+// Seitenleiste rendern
+function renderList() {
+    var list = document.getElementById('entry-list');
+    list.innerHTML = '';
+    entries.forEach(function(entry, index) {
+        var poop = '';
+        for (var i = 0; i < entry.rating; i++) poop += '💩';
+        var card = document.createElement('div');
+        card.className = 'entry-card';
+        card.innerHTML =
+            '<div class="info">' +
+                '<div class="name">' + entry.name + '</div>' +
+                '<div class="rating">' + poop + '</div>' +
+                (entry.comment ? '<div class="comment">' + entry.comment + '</div>' : '') +
+            '</div>' +
+            '<button class="delete-btn" onclick="deleteEntry(' + index + ')">✕</button>';
+        card.querySelector('.info').style.cursor = 'pointer';
+        card.querySelector('.info').onclick = function() {
+            map.setView([entry.lat, entry.lng], 13);
+            markers[index].openPopup();
+        };
+        list.appendChild(card);
+    });
+}
+
+// Speichern
+function saveEntries() {
+    localStorage.setItem('kackkarte_entries', JSON.stringify(entries));
+}
+
+// Eintrag löschen
+function deleteEntry(index) {
+    entries.splice(index, 1);
+    saveEntries();
+    loadMarkers();
+}
+
+// Popup-Formular erzeugen
+function createFormPopup(lat, lng, name) {
+    var formHtml =
+        '<div class="popup-form">' +
+            '<h3>📍 ' + name + '</h3>' +
+            '<label>Bewertung:</label>' +
+            '<div class="poop-rating" id="poop-rating">' +
+                '<span onclick="setRating(1)">💩</span>' +
+                '<span onclick="setRating(2)">💩</span>' +
+                '<span onclick="setRating(3)">💩</span>' +
+                '<span onclick="setRating(4)">💩</span>' +
+                '<span onclick="setRating(5)">💩</span>' +
+            '</div>' +
+            '<label>Kommentar:</label>' +
+            '<textarea id="popup-comment" rows="2" placeholder="Wie wars?"></textarea>' +
+            '<button class="save-btn" onclick="saveNewEntry()">💾 Speichern</button>' +
+        '</div>';
+
+    window._pendingEntry = { lat: lat, lng: lng, name: name, rating: 3 };
+
+    var popup = L.popup({ maxWidth: 300, closeOnClick: false })
+        .setLatLng([lat, lng])
+        .setContent(formHtml)
+        .openOn(map);
+
+    setTimeout(function() { setRating(3); }, 100);
+}
+
+var currentRating = 3;
+function setRating(r) {
+    currentRating = r;
+    if (window._pendingEntry) window._pendingEntry.rating = r;
+    var spans = document.querySelectorAll('#poop-rating span');
+    spans.forEach(function(s, i) {
+        s.className = i < r ? 'active' : '';
+    });
+}
+
+// Neuen Eintrag speichern
+function saveNewEntry() {
+    var comment = document.getElementById('popup-comment').value;
+    var entry = {
+        lat: window._pendingEntry.lat,
+        lng: window._pendingEntry.lng,
+        name: window._pendingEntry.name,
+        rating: currentRating,
+        comment: comment,
+        date: new Date().toLocaleDateString('de-DE')
+    };
+    entries.push(entry);
+    saveEntries();
+    map.closePopup();
+    loadMarkers();
+}
+
+// Klick auf die Karte
+map.on('click', function(e) {
+    var lat = e.latlng.lat;
+    var lng = e.latlng.lng;
+
+    // Reverse Geocoding für den Ortsnamen
+    fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng + '&zoom=10&addressdetails=1')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var name = 'Unbekannt';
+            if (data.address) {
+                name = data.address.city || data.address.town || data.address.village || data.address.municipality || data.address.state || 'Unbekannt';
+            }
+            createFormPopup(lat, lng, name);
+        })
+        .catch(function() {
+            createFormPopup(lat, lng, 'Unbekannter Ort');
+        });
+});
+
+// Stadt suchen
+function searchCity() {
+    var query = document.getElementById('search-input').value.trim();
+    if (!query) return;
+
+    fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(query) + '&countrycodes=de&limit=1')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.length > 0) {
+                var lat = parseFloat(data[0].lat);
+                var lng = parseFloat(data[0].lon);
+                var name = data[0].display_name.split(',')[0];
+                map.setView([lat, lng], 13);
+                createFormPopup(lat, lng, name);
+            } else {
+                alert('Ort nicht gefunden! Versuch es mit einem anderen Namen.');
+            }
+        })
+        .catch(function() {
+            alert('Suche fehlgeschlagen. Bitte prüfe deine Internetverbindung.');
+        });
+
+    document.getElementById('search-input').value = '';
+}
+
+// Export
+function exportData() {
+    var blob = new Blob([JSON.stringify(entries, null, 2)], {type: 'application/json'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'kackkarte_backup.json';
+    a.click();
+}
+
+// Import
+function importData() {
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = function(e) {
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+            try {
+                var imported = JSON.parse(ev.target.result);
+                entries = entries.concat(imported);
+                saveEntries();
+                loadMarkers();
+                alert('✅ ' + imported.length + ' Einträge importiert!');
+            } catch(err) {
+                alert('❌ Fehler beim Import!');
+            }
+        };
+        reader.readAsText(e.target.files[0]);
+    };
+    input.click();
+}
+
+// Beim Start laden
+loadMarkers();
+
+// Karte nach kurzer Verzögerung neu rendern (behebt Anzeigefehler)
+setTimeout(function() { map.invalidateSize(); }, 500);
+</script>
+
+</body>
+</html>
